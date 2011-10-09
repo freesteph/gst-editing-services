@@ -11,8 +11,6 @@ static gboolean load_pitivi_file_from_uri (GESFormatter * self,
 
 static void ges_pitivi_formatter_finalize (GObject * object);
 
-static xmlDocPtr create_doc (const gchar * uri);
-
 static GHashTable *get_nodes_infos (xmlNodePtr nodes);
 static gboolean create_tracks (GESFormatter * self);
 static GHashTable *list_sources (GESFormatter * self);
@@ -134,6 +132,7 @@ save_pitivi_timeline_to_uri (GESFormatter * pitivi_formatter,
   layers = ges_timeline_get_layers (timeline);
   xmlTextWriterStartElement (writer, BAD_CAST "factories");
   xmlTextWriterStartElement (writer, BAD_CAST "sources");
+
   for (tmp = layers; tmp; tmp = tmp->next) {
 
     /* 99 is the priority of the background source. */
@@ -159,7 +158,7 @@ static gboolean
 load_pitivi_file_from_uri (GESFormatter * self,
     GESTimeline * timeline, const gchar * uri)
 {
-  xmlDocPtr doc;
+  xmlDocPtr doc = NULL;
   GESTimelineLayer *layer;
   GESPitiviFormatterPrivate *priv = GES_PITIVI_FORMATTER (self)->priv;
 
@@ -179,7 +178,8 @@ load_pitivi_file_from_uri (GESFormatter * self,
     return FALSE;
   }
 
-  if (!(doc = create_doc (uri))) {
+  doc = xmlParseFile (uri);
+  if (doc == NULL) {
     GST_ERROR ("The xptv file for uri %s was badly formed or did not exist",
         uri);
     return FALSE;
@@ -499,14 +499,6 @@ save_track_objects (xmlTextWriterPtr writer, GList * source_list, gchar * res,
   }
 
   xmlTextWriterEndElement (writer);
-}
-
-static xmlDocPtr
-create_doc (const gchar * uri)
-{
-  xmlDocPtr doc;
-  doc = xmlParseFile (uri);
-  return doc;
 }
 
 static GHashTable *
