@@ -358,7 +358,7 @@ static void
 save_track_objects (xmlTextWriterPtr writer, GList * source_list, gchar * res,
     gint * id)
 {
-  GList *tmp, *tck_objs, *tmp_tck;
+  GList *tmp, *track_objects, *tmp_track;
   gchar *bin_desc;
   xmlTextWriterStartElement (writer, BAD_CAST "track-objects");
 
@@ -369,21 +369,21 @@ save_track_objects (xmlTextWriterPtr writer, GList * source_list, gchar * res,
 
     elem = tmp->data;
     object = g_list_next (elem)->data;
-    tck_objs = ges_timeline_object_get_track_objects (object);
+    track_objects = ges_timeline_object_get_track_objects (object);
 
-    for (tmp_tck = tck_objs; tmp_tck; tmp_tck = tmp_tck->next) {
+    for (tmp_track = track_objects; tmp_track; tmp_track = tmp_track->next) {
       GParamSpec **properties;
       xmlChar *cast;
       gchar *prio_str;
 
-      if (!ges_track_object_is_active (tmp_tck->data)) {
+      if (!ges_track_object_is_active (tmp_track->data)) {
         continue;
       }
 
-      if (((ges_track_object_get_track (tmp_tck->data)->type ==
+      if (((ges_track_object_get_track (tmp_track->data)->type ==
                   GES_TRACK_TYPE_VIDEO)
               && (!g_strcmp0 (res, (gchar *) "video")))
-          || ((ges_track_object_get_track (tmp_tck->data)->type ==
+          || ((ges_track_object_get_track (tmp_track->data)->type ==
                   GES_TRACK_TYPE_AUDIO)
               && (!g_strcmp0 (res, (gchar *) "audio")))) {
       } else {
@@ -400,7 +400,7 @@ save_track_objects (xmlTextWriterPtr writer, GList * source_list, gchar * res,
           BAD_CAST prio_str);
       g_free (prio_str);
       properties =
-          g_object_class_list_properties (G_OBJECT_GET_CLASS (tmp_tck->data),
+          g_object_class_list_properties (G_OBJECT_GET_CLASS (tmp_track->data),
           &n);
 
       for (i = 0; i < n; i++) {
@@ -412,7 +412,7 @@ save_track_objects (xmlTextWriterPtr writer, GList * source_list, gchar * res,
             !g_strcmp0 (p->name, (gchar *) "start") ||
             !g_strcmp0 (p->name, (gchar *) "in-point")) {
           g_value_init (&v, p->value_type);
-          g_object_get_property (G_OBJECT (tmp_tck->data), p->name, &v);
+          g_object_get_property (G_OBJECT (tmp_track->data), p->name, &v);
           serialized = gst_value_serialize (&v);
           concatenated = g_strconcat ((gchar *) "(gint64)", serialized, NULL);
 
@@ -432,12 +432,12 @@ save_track_objects (xmlTextWriterPtr writer, GList * source_list, gchar * res,
       xmlTextWriterWriteAttribute (writer, BAD_CAST "id", BAD_CAST cast);
       xmlFree (cast);
 
-      if (GES_IS_TRACK_EFFECT (tmp_tck->data)) {
+      if (GES_IS_TRACK_EFFECT (tmp_track->data)) {
         GParamSpec **pspecs, *spec;
         gchar *serialized, *concatenated;
         guint n_props = 0;
 
-        g_object_get (tmp_tck->data, "bin-description", &bin_desc, NULL);
+        g_object_get (tmp_track->data, "bin-description", &bin_desc, NULL);
         xmlTextWriterStartElement (writer, BAD_CAST "effect");
         xmlTextWriterStartElement (writer, BAD_CAST "factory");
         xmlTextWriterWriteAttribute (writer, BAD_CAST "name",
@@ -445,8 +445,8 @@ save_track_objects (xmlTextWriterPtr writer, GList * source_list, gchar * res,
         xmlTextWriterEndElement (writer);
         xmlTextWriterStartElement (writer, BAD_CAST "gst-element-properties");
 
-        pspecs =
-            ges_track_object_list_children_properties (tmp_tck->data, &n_props);
+        pspecs = ges_track_object_list_children_properties (tmp_track->data,
+            &n_props);
 
         j = 0;
 
@@ -454,7 +454,7 @@ save_track_objects (xmlTextWriterPtr writer, GList * source_list, gchar * res,
           GValue val = { 0 };
           spec = pspecs[j];
           g_value_init (&val, spec->value_type);
-          ges_track_object_get_child_property_by_pspec (tmp_tck->data, spec,
+          ges_track_object_get_child_property_by_pspec (tmp_track->data, spec,
               &val);
           serialized = gst_value_serialize (&val);
           if (!g_strcmp0 (spec->name, (gchar *) "preset")) {
@@ -489,7 +489,7 @@ save_track_objects (xmlTextWriterPtr writer, GList * source_list, gchar * res,
       xmlTextWriterEndElement (writer);
       xmlTextWriterEndElement (writer);
 
-      if (GES_IS_TRACK_EFFECT (tmp_tck->data)) {
+      if (GES_IS_TRACK_EFFECT (tmp_track->data)) {
         elem = g_list_append (elem, xmlXPathCastNumberToString (*id));
       } else {
         elem = g_list_insert (elem, xmlXPathCastNumberToString (*id), 4);
@@ -943,16 +943,16 @@ track_object_added_cb (GESTimelineObject * object,
     GESTrackObject * track_object, GHashTable * props_table)
 {
   gchar *media_type = NULL;
-  GList *tck_objs = NULL, *tmp = NULL;
+  GList *track_objects = NULL, *tmp = NULL;
   GESTrack *object_track;
   gint64 start, duration;
   gboolean has_effect = FALSE;
   gint type = 0;
-  tck_objs = ges_timeline_object_get_track_objects (object);
+  track_objects = ges_timeline_object_get_track_objects (object);
   media_type =
       (gchar *) g_hash_table_lookup (props_table, (gchar *) "media_type");
 
-  for (tmp = tck_objs; tmp; tmp = tmp->next) {
+  for (tmp = track_objects; tmp; tmp = tmp->next) {
     object_track = ges_track_object_get_track (tmp->data);
     if (GES_IS_TRACK_PARSE_LAUNCH_EFFECT (tmp->data)) {
       has_effect = TRUE;
@@ -971,8 +971,8 @@ track_object_added_cb (GESTimelineObject * object,
   }
 
   if (has_effect) {
-    tck_objs = ges_timeline_object_get_track_objects (object);
-    for (tmp = tck_objs; tmp; tmp = tmp->next) {
+    track_objects = ges_timeline_object_get_track_objects (object);
+    for (tmp = track_objects; tmp; tmp = tmp->next) {
       object_track = ges_track_object_get_track (tmp->data);
       if (GES_IS_TRACK_PARSE_LAUNCH_EFFECT (tmp->data)
           && (type == object_track->type)) {
