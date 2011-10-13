@@ -163,13 +163,12 @@ load_pitivi_file_from_uri (GESFormatter * self,
   GESPitiviFormatterPrivate *priv = GES_PITIVI_FORMATTER (self)->priv;
 
   gboolean ret = TRUE;
-  gint *prio = malloc (sizeof (gint));
+  gint priority = 0;
 
-  *prio = 0;
   layer = ges_timeline_layer_new ();
   g_object_set (layer, "auto-transition", TRUE, NULL);
 
-  g_hash_table_insert (priv->layers_table, prio, layer);
+  g_hash_table_insert (priv->layers_table, &priority, layer);
   priv->timeline = timeline;
   g_object_set (layer, "priority", (gint32) 0, NULL);
 
@@ -533,11 +532,9 @@ make_timeline_objects (GESFormatter * self)
   GHashTable *source_table;
   GESTimelineLayer *back_layer;
   gint i;
-  gint *prio = malloc (sizeof (gint));
+  gint priority = 0;
 
   GList *keys = NULL, *tmp = NULL, *ref_list = NULL;
-
-  *prio = 0;
 
   priv->background = ges_timeline_test_source_new ();
   back_layer = ges_timeline_layer_new ();
@@ -564,8 +561,7 @@ make_timeline_objects (GESFormatter * self)
         g_hash_table_lookup (priv->source_table, (gchar *) tmp->data);
     make_source (ref_list, source_table, self);
   }
-  g_hash_table_insert (priv->layers_table, prio, back_layer);
-  free (prio);
+  g_hash_table_insert (priv->layers_table, &priority, back_layer);
 
   g_list_free (keys);
   return TRUE;
@@ -582,8 +578,7 @@ make_source (GList * ref_list, GHashTable * source_table, GESFormatter * self)
   gchar *fac_ref = NULL, *media_type = NULL, *filename = NULL;
   GList *tmp = NULL, *keys, *tmp_key;
   GESTimelineFileSource *src = NULL;
-  gint cast_prio = 0;
-  gint *prio = malloc (sizeof (gint));
+  gint priority = 0;
   gboolean a_avail = FALSE, v_avail = FALSE, video = FALSE;
 
   for (tmp = ref_list; tmp; tmp = tmp->next) {
@@ -592,26 +587,21 @@ make_source (GList * ref_list, GHashTable * source_table, GESFormatter * self)
     prio_array =
         g_strsplit ((gchar *) g_hash_table_lookup (props_table,
             (gchar *) "priority"), ")", 0);
-    cast_prio = (gint) g_ascii_strtod (prio_array[1], NULL);
-    *prio = cast_prio;
+    priority = (gint) g_ascii_strtod (prio_array[1], NULL);
     fac_ref = (gchar *) g_hash_table_lookup (props_table, (gchar *) "fac_ref");
     media_type =
         (gchar *) g_hash_table_lookup (props_table, (gchar *) "media_type");
 
     g_strfreev (prio_array);
 
-    if (!g_strcmp0 (media_type, (gchar *) "pitivi.stream.VideoStream"))
-      video = TRUE;
-    else
-      video = FALSE;
+    video = !g_strcmp0 (media_type, (gchar *) "pitivi.stream.VideoStream");
 
-    if (!(layer = g_hash_table_lookup (priv->layers_table, &cast_prio))) {
+    if (!(layer = g_hash_table_lookup (priv->layers_table, &priority))) {
       layer = ges_timeline_layer_new ();
       g_object_set (layer, "auto-transition", TRUE, NULL);
-      ges_timeline_layer_set_priority (layer, cast_prio);
+      ges_timeline_layer_set_priority (layer, priority);
       ges_timeline_add_layer (priv->timeline, layer);
-      g_hash_table_insert (priv->layers_table, prio, layer);
-      free (prio);
+      g_hash_table_insert (priv->layers_table, &priority, layer);
     }
 
     if (g_strcmp0 (fac_ref, (gchar *) "effect") && a_avail && (!video)) {
@@ -711,7 +701,6 @@ make_source (GList * ref_list, GHashTable * source_table, GESFormatter * self)
   } else if (v_avail) {
     ges_timeline_filesource_set_supported_formats (src, GES_TRACK_TYPE_AUDIO);
   }
-  free (prio);
 }
 
 void
